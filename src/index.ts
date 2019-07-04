@@ -1,3 +1,4 @@
+import Timeout = NodeJS.Timeout;
 import chalk from 'chalk';
 import {relative, resolve} from 'path';
 import {URL} from 'url';
@@ -21,26 +22,29 @@ interface PullRequestGroup {
 }
 
 // given arguments for the executable
-const {argv, cwd, exit} = process;
+let timer: Timeout;
+const {argv, cwd} = process;
 const processArgs = argv.slice(2);
 const configPathOrUrl = processArgs.shift();
 
 // we need the config
 if (!configPathOrUrl) {
   console.error(chalk.red('No config or url provided!'));
-  exit(1);
+  process.exit(1);
 }
 
 const findConnector = async (url: URL): Promise<Connector> => {
   const {pathname} = url;
-  const slugs = pathname.match(/\/([\w-_]+)\/([\w-_]+)\.git$/i);
+  const slugs = pathname.match(/\/((?:\/?[\w-_]+)+)\.git$/i);
 
-  if (!slugs || slugs.length < 3) {
+  if (!slugs || slugs.length < 1) {
     console.error(chalk.red('Either project or repository can be retrieved from path:'), pathname);
     return Promise.reject();
   }
 
-  const [, project, repo] = slugs;
+  const [repo, project, group] = slugs[1]
+    .split('/')
+    .reverse();
   const connectors: ConnectorFactory[] = [
     GithubCommunityConnector,
     BitbucketSelfHostedConnector,
@@ -50,8 +54,14 @@ const findConnector = async (url: URL): Promise<Connector> => {
 
   // find matching connector
   // tslint:disable-next-line:no-non-null-assertion
-  const connector = connectors.find(factory => factory.isConnectable(url, project, repo))!;
-  return new connector(url, project, repo);
+  for await (const connector of connectors) {
+    if (await connector.isConnectable(url, project, repo, group)) {
+      return new connector(url, project, repo, group);
+    }
+  }
+
+  // we always have a connector even if it's void
+  return new VoidConnector(url, project, repo, group);
 };
 
 const loadConfig = async (path: string): Promise<Config> => {
@@ -109,7 +119,7 @@ const showPullRequests = async (pullRequests: PullRequestGroup[]) => {
   const legend = [
     chalk.white('no reviewers'),
     chalk.red('no approvals'),
-    chalk.green('approved')
+    chalk.green('approved'),
   ].join(chalk.gray(' | '));
   const log = pullRequests
     .map(({project, repo, items}) => chalk.grey(`${project}/${repo} (${items.length})`)
@@ -125,9 +135,15 @@ const showPullRequests = async (pullRequests: PullRequestGroup[]) => {
     )
     .filter(joined => joined !== '')
     .join(lb)
-  + `${lb}${legend}`;
+    + `${lb}${legend}`;
 
   console.log(log);
+};
+
+const stopTimer = () => {
+  if (timer) {
+    clearInterval(timer);
+  }
 };
 
 const startTimer = async <T extends Connector[]>(accounts: T, wait: number, run: (connectors: T) => void) => {
@@ -135,8 +151,12 @@ const startTimer = async <T extends Connector[]>(accounts: T, wait: number, run:
   run(accounts);
 
   // then wait and repeat
-  setInterval(() => run(accounts), wait * 1000);
+  stopTimer();
+  timer = setInterval(() => run(accounts), wait * 1000);
 };
+
+// clear the interval
+process.on('exit', () => stopTimer());
 
 // tslint:disable-next-line:no-non-null-assertion
 parseConfig(configPathOrUrl!)
@@ -145,4 +165,7 @@ parseConfig(configPathOrUrl!)
         .then(pullRequests => showPullRequests(pullRequests));
     },
   ))
-  .catch(error => console.error(chalk.grey(error)));
+  .catch(error => {
+    console.error(chalk.grey(error));
+    process.exit();
+  });

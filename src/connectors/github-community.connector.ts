@@ -1,12 +1,11 @@
-import chalk from 'chalk';
 import fetch, {Headers} from 'node-fetch';
 import {Connector} from '../interfaces/connector.interface';
 
 export class GithubCommunityConnector implements Connector {
 
-  static isConnectable = ({href}) => href.startsWith('https://github.com');
+  static isConnectable = async ({href}) => href.includes('github.com/');
 
-  constructor(public url, public project, public repo) {}
+  constructor(public url, public project, public repo, public group?) {}
 
   async getPullRequests() {
     // https://github.com/repos/<owner>/<repo>
@@ -24,13 +23,15 @@ export class GithubCommunityConnector implements Connector {
     try {
       const pullRequests = JSON.parse(data);
       if (Array.isArray(pullRequests)) {
-        return pullRequests.map(({title, description}) => ({title, description, reviewers: []}));
+        return pullRequests.map(({title, description, assignees}) => {
+          return {title, description, reviewers: assignees.map(({login}) => {
+            return {name: login};
+          })};
+        });
       } else {
-        console.error(chalk.red(data));
         return [];
       }
     } catch (error) {
-      console.error(chalk.red(error));
       return [];
     }
   }

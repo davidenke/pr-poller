@@ -1,12 +1,11 @@
-import chalk from 'chalk';
 import fetch, {Headers} from 'node-fetch';
 import {Connector} from '../interfaces/connector.interface';
 
 export class BitbucketSelfHostedConnector implements Connector {
 
-  static isConnectable = ({pathname}) => pathname.startsWith('/scm/');
+  static isConnectable = async ({pathname}) => pathname.startsWith('/scm/');
 
-  constructor(public url, public project, public repo) {}
+  constructor(public url, public project, public repo, public group?) {}
 
   async getPullRequests() {
     // <host>/rest/api/1.0/projects/<project>/repos/<repo>
@@ -25,14 +24,16 @@ export class BitbucketSelfHostedConnector implements Connector {
       const pullRequests = JSON.parse(data);
       if ('values' in pullRequests && Array.isArray(pullRequests.values)) {
         return pullRequests.values.map(({title, description, reviewers}) => {
-          return {title, description, reviewers: reviewers.map(({approved}) => ({approved}))};
+          return {
+            title, description, reviewers: reviewers.map(({approved, user}) => {
+              return {approved, name: user.displayName};
+            }),
+          };
         });
       } else {
-        console.error(chalk.red(data));
         return [];
       }
     } catch (error) {
-      console.error(chalk.red(error));
       return [];
     }
   }
