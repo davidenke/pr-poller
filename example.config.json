@@ -1,0 +1,7 @@
+{
+  "repositories": [
+    "https://user:pass@bitbucket.client.com/scm/project/some-repo.git",
+    "https://user:pass@git.zalari.de/other_project/some-other-repo.git",
+    "https://github.com/ngx-material-keyboard/core.git"
+  ]
+}
