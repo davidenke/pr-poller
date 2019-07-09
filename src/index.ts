@@ -117,8 +117,9 @@ const showPullRequests = async (pullRequests: PullRequestGroup[]) => {
   // log new output
   const lb = '\n\r';
   const legend = [
-    chalk.white('no reviewers'),
-    chalk.red('no approvals'),
+    chalk.grey('no reviewers'),
+    chalk.white('not reviewed'),
+    chalk.red('declined'),
     chalk.green('approved'),
   ].join(chalk.gray(' | '));
   const log = pullRequests
@@ -126,9 +127,20 @@ const showPullRequests = async (pullRequests: PullRequestGroup[]) => {
       + chalk.grey(items.length ? `:${lb}` : '')
       + items
         .map(({title, reviewers}) => {
-          const hasReviewers = reviewers.length > 0;
           const hasApproval = reviewers.some(({approved}) => approved);
-          const color = !hasReviewers ? chalk.white : hasApproval ? chalk.green : chalk.red;
+          const hasDecline = reviewers.some(({declined}) => declined);
+
+          let color;
+          if (!hasApproval && !hasDecline) {
+            color = chalk.white;
+          } else if (hasApproval && !hasDecline) {
+            color = chalk.green;
+          } else if (hasDecline) {
+            color = chalk.red;
+          } else {
+            color = chalk.grey;
+          }
+
           return `${chalk.gray('+')} ${color(title)}`;
         })
         .join(lb),

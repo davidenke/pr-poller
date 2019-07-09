@@ -4,5 +4,6 @@ export interface PullRequest {
   reviewers: {
     name: string;
     approved: boolean;
+    declined: boolean;
   }[];
 }

@@ -25,9 +25,11 @@ export class BitbucketSelfHostedConnector implements Connector {
       if ('values' in pullRequests && Array.isArray(pullRequests.values)) {
         return pullRequests.values.map(({title, description, reviewers}) => {
           return {
-            title, description, reviewers: reviewers.map(({approved, user}) => {
-              return {approved, name: user.displayName};
-            }),
+            title, description, reviewers: reviewers.map(({status, user}) => ({
+              approved: status === 'APPROVED',
+              declined: status === 'NEEDS_WORK',
+              name: user.displayName,
+            })),
           };
         });
       } else {

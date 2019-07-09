@@ -32,7 +32,8 @@ export class GitlabSelfHostedConnector implements Connector {
       return pullRequests.map(({title, description, assignee, merge_status}) => {
         return {title, description, reviewers: [{
           name: assignee.name,
-          approved: merge_status === 'can_be_merged'
+          approved: merge_status === 'can_be_merged',
+          declined: merge_status === 'cannot_be_merged'
         }]};
       });
     } catch (error) {

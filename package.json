@@ -1,7 +1,7 @@
 {
   "name": "@davidenke/pr-poller",
   "private": false,
-  "version": "0.0.10",
+  "version": "0.0.13",
   "description": "polls given resources and lists pull/merge request status",
   "author": {
     "name": "David Enke",
